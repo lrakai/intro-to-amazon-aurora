@@ -1,0 +1,295 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Introudction to Amazon Aurora Lab",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t2.micro"
+    },
+    "Region": {
+      "Type": "String",
+      "Default": "us-west-2"
+    },
+    "KeyName": {
+      "Description": "Keypair name",
+      "Type": "String",
+      "Default": "{KeyName}"
+    },
+    "AMI": {
+      "Type": "String",
+      "Default": "ami-4836a428"
+    },
+    "AMIUser": {
+      "Type": "String",
+      "Default": "ec2-user"
+    }
+  },
+  "Mappings": {
+    "Subnets": {
+      "VPC": {
+        "CIDR": "10.10.10.0/24"
+      },
+      "Subnet1": {
+        "CIDR": "10.10.10.0/25"
+      },
+      "Subnet2": {
+        "CIDR": "10.10.10.128/25"
+      }
+    }
+  },
+  "Resources": {
+    "AuroraLabVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "Subnets",
+            "VPC",
+            "CIDR"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "AuroraLabPublicSubnet001": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "AuroraLabVPC"
+        },
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "Subnets",
+            "Subnet1",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": "us-west-2a",
+        "Tags": [
+          {
+            "Key": "Network",
+            "Value": "Public"
+          }
+        ]
+      }
+    },
+    "AuroraLabPublicSubnet002": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "AuroraLabVPC"
+        },
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            "Subnets",
+            "Subnet2",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": "us-west-2b",
+        "Tags": [
+          {
+            "Key": "Network",
+            "Value": "Public"
+          }
+        ]
+      }
+    },
+    "AuroraLabDBSubnet": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "Properties": {
+        "DBSubnetGroupDescription": "default",
+        "SubnetIds": [
+          {
+            "Ref": "AuroraLabPublicSubnet001"
+          },
+          {
+            "Ref": "AuroraLabPublicSubnet002"
+          }
+        ]
+      }
+    },
+    "AuroraLabInternetGateway": {
+      "Type": "AWS::EC2::InternetGateway"
+    },
+    "AuroraLabInternetGatewayAttach": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "AuroraLabVPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "AuroraLabInternetGateway"
+        }
+      }
+    },
+    "AuroraLabPublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "AuroraLabVPC"
+        }
+      }
+    },
+    "AuroraLabPublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "AuroraLabPublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "AuroraLabInternetGateway"
+        }
+      }
+    },
+    "AuroraLabPublicRouteTableAssociation001": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "AuroraLabPublicSubnet001"
+        },
+        "RouteTableId": {
+          "Ref": "AuroraLabPublicRouteTable"
+        }
+      }
+    },
+    "AuroraLabPublicRouteTableAssociation002": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "AuroraLabPublicSubnet002"
+        },
+        "RouteTableId": {
+          "Ref": "AuroraLabPublicRouteTable"
+        }
+      }
+    },
+    "AuroraLabInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "ImageId": {
+          "Ref": "AMI"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ],
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": "true",
+            "GroupSet": [
+              {
+                "Ref": "AuroraLabSecurityGroup"
+              }
+            ],
+            "SubnetId": {
+              "Ref": "AuroraLabPublicSubnet001"
+            },
+            "DeviceIndex": "0"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "cd /home/ec2-user\n",
+                "sudo yum install mysql -y\n",
+                "sudo yum install mysql-server -y\n",
+                "service mysqld start\n",
+                "wget https://github.com/cloudacademy/aurora-lab/raw/master/casample.sql.zip\n",
+                "unzip casample.sql.zip\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "AuroraLabSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Aurora Lab",
+        "VpcId": {
+          "Ref": "AuroraLabVPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "AuroraLab"
+          }
+        ]
+      }
+    },
+    "RDSMonitoringRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "monitoring.rds.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+        ],
+        "Path": "/",
+        "RoleName": "RDSMonitoringRole"
+      }
+    }
+  }
+}

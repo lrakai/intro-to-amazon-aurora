@@ -35,6 +35,12 @@
             "Subnet2": {
                 "CIDR": "10.10.10.128/25"
             }
+        },
+        "UserConfig": {
+            "Login": {
+                "Name": "student",
+                "Pass": "password"
+            }
         }
     },
     "Resources": {

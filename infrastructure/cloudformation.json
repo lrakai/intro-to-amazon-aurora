@@ -1,295 +1,527 @@
 {
-  "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Introudction to Amazon Aurora Lab",
-  "Parameters": {
-    "InstanceType": {
-      "Type": "String",
-      "Default": "t2.micro"
-    },
-    "Region": {
-      "Type": "String",
-      "Default": "us-west-2"
-    },
-    "KeyName": {
-      "Description": "Keypair name",
-      "Type": "String",
-      "Default": "{KeyName}"
-    },
-    "AMI": {
-      "Type": "String",
-      "Default": "ami-4836a428"
-    },
-    "AMIUser": {
-      "Type": "String",
-      "Default": "ec2-user"
-    }
-  },
-  "Mappings": {
-    "Subnets": {
-      "VPC": {
-        "CIDR": "10.10.10.0/24"
-      },
-      "Subnet1": {
-        "CIDR": "10.10.10.0/25"
-      },
-      "Subnet2": {
-        "CIDR": "10.10.10.128/25"
-      }
-    }
-  },
-  "Resources": {
-    "AuroraLabVPC": {
-      "Type": "AWS::EC2::VPC",
-      "Properties": {
-        "CidrBlock": {
-          "Fn::FindInMap": [
-            "Subnets",
-            "VPC",
-            "CIDR"
-          ]
-        },
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Ref": "AWS::StackName"
-            }
-          }
-        ]
-      }
-    },
-    "AuroraLabPublicSubnet001": {
-      "Type": "AWS::EC2::Subnet",
-      "Properties": {
-        "VpcId": {
-          "Ref": "AuroraLabVPC"
-        },
-        "CidrBlock": {
-          "Fn::FindInMap": [
-            "Subnets",
-            "Subnet1",
-            "CIDR"
-          ]
-        },
-        "AvailabilityZone": "us-west-2a",
-        "Tags": [
-          {
-            "Key": "Network",
-            "Value": "Public"
-          }
-        ]
-      }
-    },
-    "AuroraLabPublicSubnet002": {
-      "Type": "AWS::EC2::Subnet",
-      "Properties": {
-        "VpcId": {
-          "Ref": "AuroraLabVPC"
-        },
-        "CidrBlock": {
-          "Fn::FindInMap": [
-            "Subnets",
-            "Subnet2",
-            "CIDR"
-          ]
-        },
-        "AvailabilityZone": "us-west-2b",
-        "Tags": [
-          {
-            "Key": "Network",
-            "Value": "Public"
-          }
-        ]
-      }
-    },
-    "AuroraLabDBSubnet": {
-      "Type": "AWS::RDS::DBSubnetGroup",
-      "Properties": {
-        "DBSubnetGroupDescription": "default",
-        "SubnetIds": [
-          {
-            "Ref": "AuroraLabPublicSubnet001"
-          },
-          {
-            "Ref": "AuroraLabPublicSubnet002"
-          }
-        ]
-      }
-    },
-    "AuroraLabInternetGateway": {
-      "Type": "AWS::EC2::InternetGateway"
-    },
-    "AuroraLabInternetGatewayAttach": {
-      "Type": "AWS::EC2::VPCGatewayAttachment",
-      "Properties": {
-        "VpcId": {
-          "Ref": "AuroraLabVPC"
-        },
-        "InternetGatewayId": {
-          "Ref": "AuroraLabInternetGateway"
-        }
-      }
-    },
-    "AuroraLabPublicRouteTable": {
-      "Type": "AWS::EC2::RouteTable",
-      "Properties": {
-        "VpcId": {
-          "Ref": "AuroraLabVPC"
-        }
-      }
-    },
-    "AuroraLabPublicRoute": {
-      "Type": "AWS::EC2::Route",
-      "Properties": {
-        "RouteTableId": {
-          "Ref": "AuroraLabPublicRouteTable"
-        },
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "GatewayId": {
-          "Ref": "AuroraLabInternetGateway"
-        }
-      }
-    },
-    "AuroraLabPublicRouteTableAssociation001": {
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-      "Properties": {
-        "SubnetId": {
-          "Ref": "AuroraLabPublicSubnet001"
-        },
-        "RouteTableId": {
-          "Ref": "AuroraLabPublicRouteTable"
-        }
-      }
-    },
-    "AuroraLabPublicRouteTableAssociation002": {
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-      "Properties": {
-        "SubnetId": {
-          "Ref": "AuroraLabPublicSubnet002"
-        },
-        "RouteTableId": {
-          "Ref": "AuroraLabPublicRouteTable"
-        }
-      }
-    },
-    "AuroraLabInstance": {
-      "Type": "AWS::EC2::Instance",
-      "Properties": {
-        "KeyName": {
-          "Ref": "KeyName"
-        },
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Introduction to Amazon Aurora Lab",
+    "Parameters": {
         "InstanceType": {
-          "Ref": "InstanceType"
+            "Type": "String",
+            "Default": "t2.micro"
         },
-        "ImageId": {
-          "Ref": "AMI"
+        "Region": {
+            "Type": "String",
+            "Default": "us-west-2"
         },
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Ref": "AWS::StackName"
-            }
-          }
-        ],
-        "NetworkInterfaces": [
-          {
-            "AssociatePublicIpAddress": "true",
-            "GroupSet": [
-              {
-                "Ref": "AuroraLabSecurityGroup"
-              }
-            ],
-            "SubnetId": {
-              "Ref": "AuroraLabPublicSubnet001"
-            },
-            "DeviceIndex": "0"
-          }
-        ],
-        "UserData": {
-          "Fn::Base64": {
-            "Fn::Join": [
-              "",
-              [
-                "#!/bin/bash\n",
-                "cd /home/ec2-user\n",
-                "sudo yum install mysql -y\n",
-                "sudo yum install mysql-server -y\n",
-                "service mysqld start\n",
-                "wget https://github.com/cloudacademy/aurora-lab/raw/master/casample.sql.zip\n",
-                "unzip casample.sql.zip\n"
-              ]
-            ]
-          }
+        "KeyName": {
+            "Description": "Keypair name",
+            "Type": "String",
+            "Default": "{KeyName}"
+        },
+        "AMI": {
+            "Type": "String",
+            "Default": "ami-4836a428"
+        },
+        "AMIUser": {
+            "Type": "String",
+            "Default": "ec2-user"
         }
-      }
     },
-    "AuroraLabSecurityGroup": {
-      "Type": "AWS::EC2::SecurityGroup",
-      "Properties": {
-        "GroupDescription": "Aurora Lab",
-        "VpcId": {
-          "Ref": "AuroraLabVPC"
-        },
-        "SecurityGroupIngress": [
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "22",
-            "ToPort": "22",
-            "CidrIp": "0.0.0.0/0"
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "80",
-            "ToPort": "80",
-            "CidrIp": "0.0.0.0/0"
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "3306",
-            "ToPort": "3306",
-            "CidrIp": "0.0.0.0/0"
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "443",
-            "ToPort": "443",
-            "CidrIp": "0.0.0.0/0"
-          }
-        ],
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": "AuroraLab"
-          }
-        ]
-      }
-    },
-    "RDSMonitoringRole": {
-      "Type": "AWS::IAM::Role",
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "Service": [
-                  "monitoring.rds.amazonaws.com"
-                ]
-              },
-              "Action": [
-                "sts:AssumeRole"
-              ]
+    "Mappings": {
+        "Subnets": {
+            "VPC": {
+                "CIDR": "10.10.10.0/24"
+            },
+            "Subnet1": {
+                "CIDR": "10.10.10.0/25"
+            },
+            "Subnet2": {
+                "CIDR": "10.10.10.128/25"
             }
-          ]
+        }
+    },
+    "Resources": {
+        "AuroraLabVPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Subnets",
+                        "VPC",
+                        "CIDR"
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    }
+                ]
+            }
         },
-        "ManagedPolicyArns": [
-          "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-        ],
-        "Path": "/",
-        "RoleName": "RDSMonitoringRole"
-      }
+        "AuroraLabPublicSubnet001": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "AuroraLabVPC"
+                },
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Subnets",
+                        "Subnet1",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": "us-west-2a",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Public"
+                    }
+                ]
+            }
+        },
+        "AuroraLabPublicSubnet002": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "AuroraLabVPC"
+                },
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Subnets",
+                        "Subnet2",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": "us-west-2b",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Public"
+                    }
+                ]
+            }
+        },
+        "AuroraLabDBSubnet": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "default",
+                "SubnetIds": [
+                    {
+                        "Ref": "AuroraLabPublicSubnet001"
+                    },
+                    {
+                        "Ref": "AuroraLabPublicSubnet002"
+                    }
+                ]
+            }
+        },
+        "AuroraLabInternetGateway": {
+            "Type": "AWS::EC2::InternetGateway"
+        },
+        "AuroraLabInternetGatewayAttach": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "AuroraLabVPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "AuroraLabInternetGateway"
+                }
+            }
+        },
+        "AuroraLabPublicRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "AuroraLabVPC"
+                }
+            }
+        },
+        "AuroraLabPublicRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "AuroraLabPublicRouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "AuroraLabInternetGateway"
+                }
+            }
+        },
+        "AuroraLabPublicRouteTableAssociation001": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "AuroraLabPublicSubnet001"
+                },
+                "RouteTableId": {
+                    "Ref": "AuroraLabPublicRouteTable"
+                }
+            }
+        },
+        "AuroraLabPublicRouteTableAssociation002": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "AuroraLabPublicSubnet002"
+                },
+                "RouteTableId": {
+                    "Ref": "AuroraLabPublicRouteTable"
+                }
+            }
+        },
+        "AuroraLabInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "ImageId": {
+                    "Ref": "AMI"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    }
+                ],
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "true",
+                        "GroupSet": [
+                            {
+                                "Ref": "AuroraLabSecurityGroup"
+                            }
+                        ],
+                        "SubnetId": {
+                            "Ref": "AuroraLabPublicSubnet001"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "cd /home/ec2-user\n",
+                                "sudo yum install mysql -y\n",
+                                "sudo yum install mysql-server -y\n",
+                                "service mysqld start\n",
+                                "wget https://github.com/cloudacademy/aurora-lab/raw/master/casample.sql.zip\n",
+                                "unzip casample.sql.zip\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "AuroraLabSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Aurora Lab",
+                "VpcId": {
+                    "Ref": "AuroraLabVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "3306",
+                        "ToPort": "3306",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "AuroraLab"
+                    }
+                ]
+            }
+        },
+        "RDSMonitoringRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "monitoring.rds.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+                ],
+                "Path": "/",
+                "RoleName": "RDSMonitoringRole"
+            }
+        },
+        "Group": {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                "GroupName": "Students",
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "students-policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "Stmt1496191915000",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "cloudwatch:DescribeAlarmHistory",
+                                        "cloudwatch:DescribeAlarms",
+                                        "cloudwatch:DescribeAlarmsForMetric",
+                                        "cloudwatch:GetMetricData",
+                                        "cloudwatch:GetMetricStatistics",
+                                        "cloudwatch:ListMetrics"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:AttachRolePolicy",
+                                        "iam:ListRoles",
+                                        "iam:GetAccountSummary",
+                                        "iam:ListAccountAliases",
+                                        "iam:ListInstanceProfiles",
+                                        "iam:ListInstanceProfilesForRole",
+                                        "iam:ListRolePolicies",
+                                        "iam:GetRole",
+                                        "iam:GetRolePolicy",
+                                        "iam:CreateServiceLinkedRole"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Action": [
+                                        "ec2:Describe*",
+                                        "ec2:CreateSecurityGroup",
+                                        "ec2:TerminateInstances",
+                                        "ec2:StopInstances",
+                                        "ec2:StartInstances",
+                                        "ec2:AuthorizeSecurityGroupIngress",
+                                        "ec2:AuthorizeSecurityGroupEgress"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "ec2:Region": "us-west-2"
+                                        }
+                                    }
+                                },
+                                {
+                                    "Effect": "Deny",
+                                    "Action": [
+                                        "ec2:ModifyInstanceAttribute",
+                                        "ec2:*Reserved*",
+                                        "ec2:*Spot*",
+                                        "dynamodb:*Reserved*",
+                                        "rds:*Reserved*",
+                                        "elasticache:*Reserved*",
+                                        "redshift:*Reserved*",
+                                        "aws-marketplace:*"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": [
+                                        "arn:aws:iam::*:role/RDSMonitoringRole"
+                                    ]
+                                },
+                                {
+                                    "Sid": "Stmt1496191947000",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "rds:AddTagsToResource",
+                                        "rds:CreateDBCluster",
+                                        "rds:CreateDBInstance",
+                                        "rds:CreateDBInstanceReadReplica",
+                                        "rds:CreateDBSnapshot",
+                                        "rds:DeleteDBInstance",
+                                        "rds:DeleteDBSnapshot",
+                                        "rds:DescribeAccountAttributes",
+                                        "rds:DescribeCertificates",
+                                        "rds:DescribeEngineDefaultClusterParameters",
+                                        "rds:DescribeEngineDefaultParameters",
+                                        "rds:DescribeDBClusterParameterGroups",
+                                        "rds:DescribeDBClusterParameters",
+                                        "rds:DescribeDBClusterSnapshots",
+                                        "rds:DescribeDBClusters",
+                                        "rds:DescribeDBInstances",
+                                        "rds:DownloadDBLogFilePortion",
+                                        "rds:DescribeDBLogFiles",
+                                        "rds:DescribeDBParameterGroups",
+                                        "rds:DescribeDBParameters",
+                                        "rds:DescribeDBSecurityGroups",
+                                        "rds:DescribeDBSnapshotAttributes",
+                                        "rds:DescribeDBSnapshots",
+                                        "rds:DescribeDBEngineVersions",
+                                        "rds:DescribeDBSubnetGroups",
+                                        "rds:DescribeEventCategories",
+                                        "rds:DescribeEvents",
+                                        "rds:DescribeEventSubscriptions",
+                                        "rds:DescribeOptionGroups",
+                                        "rds:DescribeOptionGroupOptions",
+                                        "rds:DescribeOrderableDBInstanceOptions",
+                                        "rds:DescribePendingMaintenanceActions",
+                                        "rds:FailoverDBCluster",
+                                        "rds:ListTagsForResource",
+                                        "rds:ModifyDBCluster",
+                                        "rds:ModifyDBInstance",
+                                        "rds:RebootDBInstance",
+                                        "rds:DescribeGlobalClusters"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                },
+                                {
+                                    "Sid": "AllowAuroraTestCreate",
+                                    "Effect": "Allow",
+                                    "Action": "rds:CreateDBInstance",
+                                    "Resource": "*",
+                                    "Condition": {
+                                        "NumericLessThanEquals": {
+                                            "rds: StorageSize": "40"
+                                        },
+                                        "StringEquals": {
+                                            "rds:DatabaseEngine": "aurora",
+                                            "rds:DatabaseClass": "db.t2.small"
+                                        }
+                                    }
+                                },
+                                {
+                                    "Sid": "DenyLargeInstance",
+                                    "Effect": "Deny",
+                                    "Action": "rds:CreateDBInstance",
+                                    "Resource": "*",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "rds:DatabaseClass": [
+                                                "db.m1.small",
+                                                "db.m1.medium",
+                                                "db.m1.large",
+                                                "db.m1.xlarge",
+                                                "db.m2.xlarge",
+                                                "db.m2.2xlarge",
+                                                "db.m2.4xlarge",
+                                                "db.m3.medium",
+                                                "db.m3.large",
+                                                "db.m3.xlarge",
+                                                "db.m3.2xlarge",
+                                                "db.m4.large",
+                                                "db.m4.xlarge",
+                                                "db.m4.2xlarge",
+                                                "db.m4.4xlarge",
+                                                "db.m4.10xlarge",
+                                                "db.r3.large",
+                                                "db.r3.xlarge",
+                                                "db.r3.2xlarge",
+                                                "db.r3.4xlarge",
+                                                "db.r3.8xlarge",
+                                                "db.t2.medium",
+                                                "db.t2.large"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "Sid": "DenyPIOPSCreate",
+                                    "Effect": "Deny",
+                                    "Action": "rds:CreateDBInstance",
+                                    "Resource": "*",
+                                    "Condition": {
+                                        "NumericNotEquals": {
+                                            "rds:Piops": "0"
+                                        }
+                                    }
+                                },
+                                {
+                                    "Effect": "Deny",
+                                    "Action": [
+                                        "ec2:*Host*"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "User": {
+            "Type": "AWS::IAM::User",
+            "DependsOn": "Group",
+            "Properties": {
+                "LoginProfile": {
+                    "Password": {
+                        "Fn::FindInMap": [
+                            "UserConfig",
+                            "Login",
+                            "Pass"
+                        ]
+                    }
+                },
+                "Path": "/",
+                "Groups": [
+                    "Students"
+                ],
+                "UserName": {
+                    "Fn::FindInMap": [
+                        "UserConfig",
+                        "Login",
+                        "Name"
+                    ]
+                }
+            }
+        }
     }
-  }
 }

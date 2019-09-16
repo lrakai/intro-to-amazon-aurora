@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Introudction to Amazon Aurora Lab",
+  "Description": "Introduction to Amazon Aurora Lab",
   "Parameters": {
     "InstanceType": {
       "Type": "String",
@@ -424,7 +424,7 @@
                       "rds:DatabaseClass": "db.t2.small"
                     },
                     "NumericLessThanEquals": {
-                        "rds:StorageSize": "20"
+                      "rds:StorageSize": "20"
                     },
                     "Bool": {
                       "rds:Vpc": "true"

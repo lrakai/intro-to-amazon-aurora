@@ -35,6 +35,12 @@
       "Subnet2": {
         "CIDR": "10.10.10.128/25"
       }
+    },
+    "UserConfig": {
+      "Login": {
+        "Name": "student",
+        "Pass": "password"
+      }
     }
   },
   "Resources": {
@@ -289,6 +295,233 @@
         ],
         "Path": "/",
         "RoleName": "RDSMonitoringRole"
+      }
+    },
+    "Group": {
+      "Type": "AWS::IAM::Group",
+      "Properties": {
+        "GroupName": "Students",
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "students-policy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "Stmt1496191915000",
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudwatch:DescribeAlarmHistory",
+                    "cloudwatch:DescribeAlarms",
+                    "cloudwatch:DescribeAlarmsForMetric",
+                    "cloudwatch:GetMetricData",
+                    "cloudwatch:GetMetricStatistics",
+                    "cloudwatch:ListMetrics"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "rds:Download*"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "iam:AttachRolePolicy",
+                    "iam:ListRoles",
+                    "iam:GetAccountSummary",
+                    "iam:ListAccountAliases",
+                    "iam:ListInstanceProfiles",
+                    "iam:ListInstanceProfilesForRole",
+                    "iam:ListRolePolicies",
+                    "iam:GetRole",
+                    "iam:GetRolePolicy",
+                    "iam:CreateServiceLinkedRole"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Action": [
+                    "ec2:Describe*",
+                    "ec2:CreateSecurityGroup",
+                    "ec2:TerminateInstances",
+                    "ec2:StopInstances",
+                    "ec2:StartInstances",
+                    "ec2:AuthorizeSecurityGroupIngress",
+                    "ec2:AuthorizeSecurityGroupEgress"
+                  ],
+                  "Resource": "*",
+                  "Effect": "Allow",
+                  "Condition": {
+                    "StringEquals": {
+                      "ec2:Region": "us-west-2"
+                    }
+                  }
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": [
+                    "ec2:ModifyInstanceAttribute",
+                    "ec2:*Reserved*",
+                    "ec2:*Spot*",
+                    "dynamodb:*Reserved*",
+                    "rds:*Reserved*",
+                    "elasticache:*Reserved*",
+                    "redshift:*Reserved*",
+                    "aws-marketplace:*"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "iam:PassRole"
+                  ],
+                  "Resource": [
+                    "arn:aws:iam::*:role/RDSMonitoringRole"
+                  ]
+                },
+                {
+                  "Sid": "Stmt1496191947000",
+                  "Effect": "Allow",
+                  "Action": [
+                    "rds:AddTagsToResource",
+                    "rds:CreateDBCluster",
+                    "rds:CreateDBInstance",
+                    "rds:CreateDBInstanceReadReplica",
+                    "rds:CreateDBSnapshot",
+                    "rds:DeleteDBInstance",
+                    "rds:DeleteDBSnapshot",
+                    "rds:DescribeDBLogFiles",
+                    "rds:Describe*",
+                    "rds:FailoverDBCluster",
+                    "rds:ListTagsForResource",
+                    "rds:ModifyDBCluster",
+                    "rds:ModifyDBInstance",
+                    "rds:RebootDBInstance"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "rds:CreateDBInstance",
+                  "Resource": "*",
+                  "Condition": {
+                    "StringEquals": {
+                      "rds:DatabaseEngine": "aurora-mysql",
+                      "rds:DatabaseClass": "db.t2.small"
+                    },
+                    "NumericLessThanEquals": {
+                        "rds:StorageSize": "20"
+                    },
+                    "Bool": {
+                      "rds:Vpc": "true"
+                    }
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "rds:CreateDBInstance",
+                  "Resource": [
+                    "arn:aws:rds:*:*:og:*",
+                    "arn:aws:rds:*:*:pg:*",
+                    "arn:aws:rds:*:*:subgrp:*"
+                  ]
+                },
+                {
+                  "Sid": "DenyLargeInstance",
+                  "Effect": "Deny",
+                  "Action": "rds:CreateDBInstance",
+                  "Resource": "arn:aws:rds:*:*:db:*",
+                  "Condition": {
+                    "StringEquals": {
+                      "rds:DatabaseClass": [
+                        "db.m1.small",
+                        "db.m1.medium",
+                        "db.m1.large",
+                        "db.m1.xlarge",
+                        "db.m2.xlarge",
+                        "db.m2.2xlarge",
+                        "db.m2.4xlarge",
+                        "db.m3.medium",
+                        "db.m3.large",
+                        "db.m3.xlarge",
+                        "db.m3.2xlarge",
+                        "db.m4.large",
+                        "db.m4.xlarge",
+                        "db.m4.2xlarge",
+                        "db.m4.4xlarge",
+                        "db.m4.10xlarge",
+                        "db.r3.large",
+                        "db.r3.xlarge",
+                        "db.r3.2xlarge",
+                        "db.r3.4xlarge",
+                        "db.r3.8xlarge",
+                        "db.t2.medium",
+                        "db.t2.large"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "Sid": "DenyPIOPSCreate",
+                  "Effect": "Deny",
+                  "Action": "rds:CreateDBInstance",
+                  "Resource": "arn:aws:rds:*:*:db:*",
+                  "Condition": {
+                    "NumericNotEquals": {
+                      "rds:Piops": "0"
+                    }
+                  }
+                },
+                {
+                  "Effect": "Deny",
+                  "Action": [
+                    "ec2:*Host*"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "User": {
+      "Type": "AWS::IAM::User",
+      "Properties": {
+        "LoginProfile": {
+          "Password": {
+            "Fn::FindInMap": [
+              "UserConfig",
+              "Login",
+              "Pass"
+            ]
+          }
+        },
+        "Path": "/",
+        "Groups": [
+          "Students"
+        ],
+        "UserName": {
+          "Fn::FindInMap": [
+            "UserConfig",
+            "Login",
+            "Name"
+          ]
+        }
       }
     }
   }

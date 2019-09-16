@@ -501,6 +501,7 @@
     },
     "User": {
       "Type": "AWS::IAM::User",
+      "DependsOn": "Group",
       "Properties": {
         "LoginProfile": {
           "Password": {
